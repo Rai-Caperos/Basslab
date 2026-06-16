@@ -20,8 +20,63 @@
     </nav>
     <main id="content">
       <div id="tab-analizador" class="tab-panel active">
-        <p class="placeholder">Módulo analizador — en construcción</p>
+
+  <div id="analizador-grid">
+
+    <!-- A1: Carga -->
+    <div class="panel" id="panel-carga">
+      <div class="panel-label">A1 — CARGA DE ARCHIVO</div>
+      <div id="drop-zone">
+        <div id="drop-icon">♪</div>
+        <div id="drop-txt">Arrastra un MP3 aquí</div>
+        <div id="drop-sub">o haz clic para seleccionar</div>
       </div>
+      <div id="file-info" class="hidden">
+        <div id="file-name">—</div>
+        <div id="file-meta">—</div>
+      </div>
+      <button id="btn-analizar" class="bl-btn primary hidden">ANALIZAR BAJO</button>
+      <div id="progreso" class="hidden">
+        <div id="progreso-bar"><div id="progreso-fill"></div></div>
+        <div id="progreso-txt">Procesando con GPU...</div>
+      </div>
+    </div>
+
+    <!-- A2: Forma de onda (placeholder) -->
+    <div class="panel" id="panel-onda">
+      <div class="panel-label">A2 — FORMA DE ONDA</div>
+      <div class="placeholder">Carga un MP3 para visualizar</div>
+    </div>
+
+    <!-- A3: VU Meters -->
+    <div class="panel" id="panel-vu">
+      <div class="panel-label">A3 — NIVELES</div>
+      <div class="vu-row"><span class="vu-label">L</span><div class="vu-bar"><div class="vu-fill" id="vu-l" style="width:0%"></div></div></div>
+      <div class="vu-row"><span class="vu-label">R</span><div class="vu-bar"><div class="vu-fill" id="vu-r" style="width:0%"></div></div></div>
+      <div class="vu-row"><span class="vu-label">B</span><div class="vu-bar"><div class="vu-fill vu-green" id="vu-b" style="width:0%"></div></div></div>
+    </div>
+
+    <!-- A4: Pantalla LCD -->
+    <div class="panel" id="panel-lcd">
+      <div class="panel-label">A4 — DISPLAY</div>
+      <div id="lcd">
+        <div id="lcd-line1">BASSLAB v0.1</div>
+        <div id="lcd-line2">SIN SEÑAL</div>
+        <div id="lcd-line3">44.1kHz · STEREO</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- A6: Tablatura full width -->
+  <div class="panel" id="panel-tablatura">
+    <div class="panel-label">A6 — TABLATURA</div>
+    <div id="tablatura-content">
+      <div class="placeholder">El análisis generará la tablatura aquí</div>
+    </div>
+  </div>
+
+</div>
       <div id="tab-compositor" class="tab-panel">
         <p class="placeholder">Módulo compositor — en construcción</p>
       </div>

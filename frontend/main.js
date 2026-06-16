@@ -12,11 +12,17 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      webSecurity: false,
       preload: path.join(__dirname, 'preload.js')
     }
   })
 
   win.loadFile('renderer/index.html')
+  win.webContents.on('will-navigate', e => e.preventDefault())
+
+  app.on('browser-window-created', (_, window) => {
+    window.webContents.on('will-navigate', e => e.preventDefault())
+  })
   win.setMenuBarVisibility(false)
 }
 

@@ -119,21 +119,28 @@ async def generar_tablatura(archivo: UploadFile = File(...)):
     ]
 
     def nota_a_tablatura(nota, octava):
-        """Convierte una nota al traste más cómodo (más bajo) en el bajo"""
         nota_idx = NOTAS_ES.index(nota)
-        midi = (octava + 1) * 12 + nota_idx
+        midi = octava * 12 + nota_idx
 
-        mejor = None
-        for cuerda in CUERDAS:
+        candidatos = []
+        for i, cuerda in enumerate(CUERDAS):
             traste = midi - cuerda["midi_base"]
             if 0 <= traste <= 12:
-                if mejor is None or traste < mejor["traste"]:
-                    mejor = {
-                        "cuerda": cuerda["nombre"],
-                        "cuerda_num": CUERDAS.index(cuerda) + 1,
-                        "traste": traste
-                    }
-        return mejor
+                candidatos.append({
+                    "cuerda": cuerda["nombre"],
+                    "cuerda_num": i + 1,
+                    "traste": traste,
+                    "midi_base": cuerda["midi_base"]
+                })
+
+        if not candidatos:
+            return None
+
+        # Preferir cuerda más grave con traste <= 7, si no, el traste más bajo
+        graves = [c for c in candidatos if c["traste"] <= 7]
+        if graves:
+            return min(graves, key=lambda c: c["midi_base"])
+        return min(candidatos, key=lambda c: c["traste"])
 
     with tempfile.TemporaryDirectory() as tmpdir:
         ruta_wav = os.path.join(tmpdir, archivo.filename)
@@ -177,6 +184,14 @@ async def generar_tablatura(archivo: UploadFile = File(...)):
             "total_notas": len(tablatura),
             "tablatura": tablatura[:80]
         }
+    
+from fastapi.responses import FileResponse
+
+@app.get("/bajo-extraido")
+def bajo_extraido(ruta: str):
+    if not os.path.exists(ruta):
+        return {"error": "Archivo no encontrado"}
+    return FileResponse(ruta, media_type="audio/wav")
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8007, reload=True)
