@@ -102,6 +102,81 @@ async def detectar_notas(archivo: UploadFile = File(...)):
             "total_notas": len(notas_detectadas),
             "notas": notas_detectadas[:50]  # primeras 50 para no saturar
         }
+    
+@app.post("/generar-tablatura")
+async def generar_tablatura(archivo: UploadFile = File(...)):
+    import librosa
+    import numpy as np
+
+    NOTAS_ES = ["Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "La#", "Si"]
+
+    # Afinación estándar bajo 4 cuerdas (nota, octava, midi base)
+    CUERDAS = [
+        {"nombre": "E", "nota": "Mi",  "octava": 1, "midi_base": 28},  # 4ª cuerda
+        {"nombre": "A", "nota": "La",  "octava": 1, "midi_base": 33},  # 3ª cuerda
+        {"nombre": "D", "nota": "Re",  "octava": 2, "midi_base": 38},  # 2ª cuerda
+        {"nombre": "G", "nota": "Sol", "octava": 2, "midi_base": 43},  # 1ª cuerda
+    ]
+
+    def nota_a_tablatura(nota, octava):
+        """Convierte una nota al traste más cómodo (más bajo) en el bajo"""
+        nota_idx = NOTAS_ES.index(nota)
+        midi = (octava + 1) * 12 + nota_idx
+
+        mejor = None
+        for cuerda in CUERDAS:
+            traste = midi - cuerda["midi_base"]
+            if 0 <= traste <= 12:
+                if mejor is None or traste < mejor["traste"]:
+                    mejor = {
+                        "cuerda": cuerda["nombre"],
+                        "cuerda_num": CUERDAS.index(cuerda) + 1,
+                        "traste": traste
+                    }
+        return mejor
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        ruta_wav = os.path.join(tmpdir, archivo.filename)
+        with open(ruta_wav, "wb") as f:
+            shutil.copyfileobj(archivo.file, f)
+
+        y, sr = librosa.load(ruta_wav, mono=True)
+        pitches, magnitudes = librosa.piptrack(y=y, sr=sr, threshold=0.1)
+
+        tablatura = []
+        nota_anterior = None
+
+        for t in range(0, pitches.shape[1], 10):
+            index = magnitudes[:, t].argmax()
+            pitch = pitches[index, t]
+            if pitch > 30 and pitch < 400:
+                nota_midi = librosa.hz_to_midi(pitch)
+                nota_idx = int(round(nota_midi)) % 12
+                octava = int(round(nota_midi)) // 12 - 1
+                nombre = NOTAS_ES[nota_idx]
+
+                # Evitar repetir la misma nota consecutiva
+                clave = f"{nombre}{octava}"
+                if clave == nota_anterior:
+                    continue
+                nota_anterior = clave
+
+                posicion = nota_a_tablatura(nombre, octava)
+                if posicion:
+                    tablatura.append({
+                        "tiempo": round(t * 512 / sr, 2),
+                        "nota": nombre,
+                        "octava": octava,
+                        "cuerda": posicion["cuerda"],
+                        "cuerda_num": posicion["cuerda_num"],
+                        "traste": posicion["traste"]
+                    })
+
+        return {
+            "status": "ok",
+            "total_notas": len(tablatura),
+            "tablatura": tablatura[:80]
+        }
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8007, reload=True)
