@@ -63,6 +63,45 @@ async def analizar_bajo(archivo: UploadFile = File(...)):
             "mensaje": "Bajo extraído correctamente",
             "archivo_bajo": destino
         }
+    
+@app.post("/detectar-notas")
+async def detectar_notas(archivo: UploadFile = File(...)):
+    import librosa
+    import numpy as np
+
+    NOTAS_ES = ["Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "La#", "Si"]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        ruta_wav = os.path.join(tmpdir, archivo.filename)
+        with open(ruta_wav, "wb") as f:
+            shutil.copyfileobj(archivo.file, f)
+
+        y, sr = librosa.load(ruta_wav, mono=True)
+
+        # Detectar frecuencias fundamentales con piptrack
+        pitches, magnitudes = librosa.piptrack(y=y, sr=sr, threshold=0.1)
+
+        notas_detectadas = []
+        for t in range(0, pitches.shape[1], 10):  # cada 10 frames ~0.2 segundos
+            index = magnitudes[:, t].argmax()
+            pitch = pitches[index, t]
+            if pitch > 30 and pitch < 400:  # rango del bajo: 30Hz-400Hz
+                nota_midi = librosa.hz_to_midi(pitch)
+                nota_idx = int(round(nota_midi)) % 12
+                octava = int(round(nota_midi)) // 12 - 1
+                nombre = NOTAS_ES[nota_idx]
+                notas_detectadas.append({
+                    "tiempo": round(t * 512 / sr, 2),
+                    "nota": nombre,
+                    "octava": octava,
+                    "frecuencia_hz": round(float(pitch), 2)
+                })
+
+        return {
+            "status": "ok",
+            "total_notas": len(notas_detectadas),
+            "notas": notas_detectadas[:50]  # primeras 50 para no saturar
+        }
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8007, reload=True)
