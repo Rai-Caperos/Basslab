@@ -148,6 +148,10 @@ async def generar_tablatura(archivo: UploadFile = File(...)):
             shutil.copyfileobj(archivo.file, f)
 
         y, sr = librosa.load(ruta_wav, mono=True)
+        # Detectar tempo
+        tempo, beats = librosa.beat.beat_track(y=y, sr=sr)
+        tempo = float(round(float(tempo.item()), 1))
+        segundos_por_compas = (4 * 60) / tempo  # compás de 4/4
         pitches, magnitudes = librosa.piptrack(y=y, sr=sr, threshold=0.1)
 
         tablatura = []
@@ -182,6 +186,8 @@ async def generar_tablatura(archivo: UploadFile = File(...)):
         return {
             "status": "ok",
             "total_notas": len(tablatura),
+            "tempo": tempo,
+            "segundos_por_compas": round(segundos_por_compas, 3),
             "tablatura": tablatura[:80]
         }
     

@@ -131,7 +131,7 @@ btnAnalizar.addEventListener('click', async () => {
     setTimeout(() => {
       progreso.classList.add('hidden')
       btnAnalizar.classList.remove('hidden')
-      mostrarTablatura(d2.tablatura)
+      mostrarTablatura(d2.tablatura, d2.tempo, d2.segundos_por_compas)
     }, 800)
 
   } catch (err) {
@@ -149,7 +149,7 @@ function lcdSet(l1, l2, l3) {
 }
 
 // ── Tablatura ──────────────────────────────────────────────
-function mostrarTablatura(notas) {
+function mostrarTablatura(notas, tempo, segundosPorCompas) {
   const content = document.getElementById('tablatura-content')
   if (!notas || notas.length === 0) {
     content.innerHTML = '<div class="placeholder">No se detectaron notas</div>'
@@ -157,20 +157,71 @@ function mostrarTablatura(notas) {
   }
 
   const cuerdas = ['G', 'D', 'A', 'E']
-  let html = '<div class="tab-grid">'
+  const COLS = 120
+  const duracionTotal = notas[notas.length - 1].tiempo + segundosPorCompas
+  const colsPorSegundo = COLS / duracionTotal
 
-  cuerdas.forEach(cuerda => {
-    html += `<div class="tab-cuerda">`
-    html += `<span class="tab-cuerda-nombre">${cuerda}</span>`
-    html += `<div class="tab-linea">`
-    notas.forEach(n => {
-      if (n.cuerda === cuerda) {
-        html += `<div class="tab-nota" style="left:${(n.tiempo * 40)}px" title="${n.nota} · ${n.tiempo}s">${n.traste}</div>`
-      }
-    })
-    html += `</div></div>`
+  // Crear grid de caracteres por cuerda
+  const grid = {}
+  cuerdas.forEach(c => {
+    grid[c] = Array(COLS).fill('-')
   })
 
-  html += '</div>'
+  // Rellenar notas en el grid
+  // Rellenar notas en el grid — sincronizando todas las cuerdas
+  notas.forEach(n => {
+    let col = Math.min(Math.round(n.tiempo * colsPorSegundo), COLS - 3)
+    
+    // Buscar columna libre en TODAS las cuerdas
+    while (col < COLS - 3 && cuerdas.some(c => grid[c][col] !== '-' || grid[c][col + 1] !== '-')) {
+      col++
+    }
+
+    const str = String(n.traste)
+    // Colocar la nota en su cuerda
+    grid[n.cuerda][col] = str[0]
+    if (str.length > 1) {
+      grid[n.cuerda][col + 1] = str[1]
+    }
+    // Reservar la columna en las demás cuerdas con guión explícito
+    cuerdas.forEach(c => {
+      if (c !== n.cuerda) {
+        if (grid[c][col] === '-') grid[c][col] = '-'
+        if (str.length > 1 && grid[c][col + 1] === '-') grid[c][col + 1] = '-'
+      }
+    })
+  })
+
+  // Calcular posiciones de barras de compás
+  const barras = new Set()
+  let t = 0
+  while (t < duracionTotal) {
+    barras.add(Math.min(Math.round(t * colsPorSegundo), COLS - 1))
+    t += segundosPorCompas
+  }
+
+  // Construir HTML
+  let html = `<div style="overflow-x:auto; padding:8px 0;">`
+  html += `<div style="font-family:'Share Tech Mono',monospace; font-size:13px; line-height:2; white-space:nowrap; display:inline-block;">`
+  html += `<div style="font-size:9px; color:#005588; letter-spacing:2px; margin-bottom:8px;">♩= ${tempo} BPM</div>`
+
+  cuerdas.forEach(cuerda => {
+    let linea = `<span style="color:#0099ff;">${cuerda}|</span>`
+    for (let col = 0; col < COLS; col++) {
+      if (barras.has(col)) {
+        linea += `<span style="color:#0a3a6a;">|</span>`
+      }
+      const char = grid[cuerda][col]
+      if (char !== '-') {
+        linea += `<span class="tab-nota-inline" data-col="${col}" style="color:#00aaff; font-weight:bold;">${char}</span>`
+      } else {
+        linea += `<span style="color:#0a2a4a;">-</span>`
+      }
+    }
+    linea += `<span style="color:#0a3a6a;">|</span>`
+    html += `<div>${linea}</div>`
+  })
+
+  html += '</div></div>'
   content.innerHTML = html
 }
