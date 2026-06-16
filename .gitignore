@@ -5,3 +5,4 @@ projects/
 samples/
 *.wav
 *.mp3
+frontend/node_modules/

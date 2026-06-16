@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BASSLAB</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <header id="header">
+      <span id="logo">BASS<span class="logo-dim">LAB</span></span>
+      <span id="status-dot"></span>
+      <span id="status-txt">OFFLINE</span>
+      <button id="btn-cerrar" onclick="window.close()">✕</button>
+    </header>
+    <nav id="tabs">
+      <button class="tab active" data-tab="analizador">ANALIZADOR</button>
+      <button class="tab" data-tab="compositor">COMPOSITOR</button>
+    </nav>
+    <main id="content">
+      <div id="tab-analizador" class="tab-panel active">
+        <p class="placeholder">Módulo analizador — en construcción</p>
+      </div>
+      <div id="tab-compositor" class="tab-panel">
+        <p class="placeholder">Módulo compositor — en construcción</p>
+      </div>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
