@@ -1,6 +1,7 @@
-* { margin: 0; padding: 0; box-sizing: border-box; }
-
 @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&display=swap');
+
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
   background: #0a0e14;

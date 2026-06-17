@@ -83,7 +83,6 @@ btnAnalizar.addEventListener('click', async () => {
   progreso.classList.remove('hidden')
   lcdSet('ANALIZANDO...', 'SEPARANDO BAJO', 'GPU · demucs')
 
-  // Animación de progreso simulada mientras trabaja la GPU
   let pct = 0
   const intervalo = setInterval(() => {
     pct = Math.min(pct + 1, 90)
@@ -106,12 +105,10 @@ btnAnalizar.addEventListener('click', async () => {
     progresoTxt.textContent = 'Detectando notas...'
     lcdSet('DETECTANDO', 'NOTAS · librosa', 'Do-Re-Mi')
 
-    // Ahora pedimos la tablatura del bajo extraído
     const nombreBajo = d1.archivo_bajo
     progresoFill.style.width = '95%'
     progresoTxt.textContent = 'Generando tablatura...'
 
-    // Leemos el archivo WAV del bajo y lo mandamos al endpoint de tablatura
     const respWav = await fetch('http://127.0.0.1:8007/bajo-extraido?ruta=' + encodeURIComponent(nombreBajo))
     const wavBlob = await respWav.blob()
     const formData2 = new FormData()
@@ -157,69 +154,61 @@ function mostrarTablatura(notas, tempo, segundosPorCompas) {
   }
 
   const cuerdas = ['G', 'D', 'A', 'E']
-  const COLS = 120
+  const COLS_POR_COMPAS = 8
+
   const duracionTotal = notas[notas.length - 1].tiempo + segundosPorCompas
-  const colsPorSegundo = COLS / duracionTotal
+  const numCompases = Math.ceil(duracionTotal / segundosPorCompas)
+  const COLS = numCompases * COLS_POR_COMPAS
 
-  // Crear grid de caracteres por cuerda
   const grid = {}
-  cuerdas.forEach(c => {
-    grid[c] = Array(COLS).fill('-')
-  })
+  cuerdas.forEach(c => grid[c] = Array(COLS).fill('-'))
 
-  // Rellenar notas en el grid
-  // Rellenar notas en el grid — sincronizando todas las cuerdas
+  function tiempoACol(tiempo) {
+    const compas = Math.floor(tiempo / segundosPorCompas)
+    const posEnCompas = (tiempo % segundosPorCompas) / segundosPorCompas
+    return Math.min(
+      compas * COLS_POR_COMPAS + Math.round(posEnCompas * (COLS_POR_COMPAS - 1)),
+      COLS - 3
+    )
+  }
+
   notas.forEach(n => {
-    let col = Math.min(Math.round(n.tiempo * colsPorSegundo), COLS - 3)
-    
-    // Buscar columna libre en TODAS las cuerdas
+    let col = tiempoACol(n.tiempo)
     while (col < COLS - 3 && cuerdas.some(c => grid[c][col] !== '-' || grid[c][col + 1] !== '-')) {
       col++
     }
-
     const str = String(n.traste)
-    // Colocar la nota en su cuerda
     grid[n.cuerda][col] = str[0]
-    if (str.length > 1) {
-      grid[n.cuerda][col + 1] = str[1]
-    }
-    // Reservar la columna en las demás cuerdas con guión explícito
-    cuerdas.forEach(c => {
-      if (c !== n.cuerda) {
-        if (grid[c][col] === '-') grid[c][col] = '-'
-        if (str.length > 1 && grid[c][col + 1] === '-') grid[c][col + 1] = '-'
-      }
-    })
+    if (str.length > 1) grid[n.cuerda][col + 1] = str[1]
   })
 
-  // Calcular posiciones de barras de compás
-  const barras = new Set()
-  let t = 0
-  while (t < duracionTotal) {
-    barras.add(Math.min(Math.round(t * colsPorSegundo), COLS - 1))
-    t += segundosPorCompas
-  }
-
-  // Construir HTML
-  let html = `<div style="overflow-x:auto; padding:8px 0;">`
-  html += `<div style="font-family:'Share Tech Mono',monospace; font-size:13px; line-height:2; white-space:nowrap; display:inline-block;">`
-  html += `<div style="font-size:9px; color:#005588; letter-spacing:2px; margin-bottom:8px;">♩= ${tempo} BPM</div>`
+  let html = `<div style="overflow-x:auto; padding:8px 4px;">`
+  html += `<div style="font-family:'Share Tech Mono',monospace; font-size:13px; line-height:2.2; white-space:nowrap; display:inline-block;">`
+  html += `<div style="font-size:9px; color:#005588; letter-spacing:2px; margin-bottom:10px;">♩= ${tempo} BPM &nbsp;·&nbsp; ${numCompases} compases &nbsp;·&nbsp; 4/4</div>`
 
   cuerdas.forEach(cuerda => {
-    let linea = `<span style="color:#0099ff;">${cuerda}|</span>`
-    for (let col = 0; col < COLS; col++) {
-      if (barras.has(col)) {
-        linea += `<span style="color:#0a3a6a;">|</span>`
+    let linea = `<span style="color:#0099ff; margin-right:2px;">${cuerda}|</span>`
+
+    for (let compas = 0; compas < numCompases; compas++) {
+      const inicio = compas * COLS_POR_COMPAS
+      const fin = inicio + COLS_POR_COMPAS
+
+      for (let col = inicio; col < fin; col++) {
+        const posEnCompas = col - inicio
+        if (posEnCompas > 0 && posEnCompas % 2 === 0) {
+          linea += `<span style="color:#0a2a4a;">·</span>`
+        }
+        const char = grid[cuerda][col]
+        if (char !== '-') {
+          linea += `<span style="color:#00aaff; font-weight:bold;">${char}</span>`
+        } else {
+          linea += `<span style="color:#0a3a6a;">-</span>`
+        }
       }
-      const char = grid[cuerda][col]
-      if (char !== '-') {
-        linea += `<span class="tab-nota-inline" data-col="${col}" style="color:#00aaff; font-weight:bold;">${char}</span>`
-      } else {
-        linea += `<span style="color:#0a2a4a;">-</span>`
-      }
+      linea += `<span style="color:#1a5a8a; margin:0 2px;">|</span>`
     }
-    linea += `<span style="color:#0a3a6a;">|</span>`
-    html += `<div>${linea}</div>`
+
+    html += `<div style="margin-bottom:2px;">${linea}</div>`
   })
 
   html += '</div></div>'

@@ -18,6 +18,7 @@ function createWindow() {
   })
 
   win.loadFile('renderer/index.html')
+  win.webContents.openDevTools()
   win.webContents.on('will-navigate', e => e.preventDefault())
 
   app.on('browser-window-created', (_, window) => {
