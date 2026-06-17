@@ -106,22 +106,19 @@ async def detectar_notas(archivo: UploadFile = File(...)):
 @app.post("/generar-tablatura")
 async def generar_tablatura(archivo: UploadFile = File(...)):
     import librosa
-    import numpy as np
+    from basic_pitch.inference import predict
+    import os
 
     NOTAS_ES = ["Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "La#", "Si"]
 
-    # Afinación estándar bajo 4 cuerdas (nota, octava, midi base)
     CUERDAS = [
-        {"nombre": "E", "nota": "Mi",  "octava": 1, "midi_base": 28},  # 4ª cuerda
-        {"nombre": "A", "nota": "La",  "octava": 1, "midi_base": 33},  # 3ª cuerda
-        {"nombre": "D", "nota": "Re",  "octava": 2, "midi_base": 38},  # 2ª cuerda
-        {"nombre": "G", "nota": "Sol", "octava": 2, "midi_base": 43},  # 1ª cuerda
+        {"nombre": "E", "midi_base": 28},
+        {"nombre": "A", "midi_base": 33},
+        {"nombre": "D", "midi_base": 38},
+        {"nombre": "G", "midi_base": 43},
     ]
 
-    def nota_a_tablatura(nota, octava):
-        nota_idx = NOTAS_ES.index(nota)
-        midi = octava * 12 + nota_idx
-
+    def nota_a_tablatura(midi):
         candidatos = []
         for i, cuerda in enumerate(CUERDAS):
             traste = midi - cuerda["midi_base"]
@@ -132,11 +129,8 @@ async def generar_tablatura(archivo: UploadFile = File(...)):
                     "traste": traste,
                     "midi_base": cuerda["midi_base"]
                 })
-
         if not candidatos:
             return None
-
-        # Preferir cuerda más grave con traste <= 7, si no, el traste más bajo
         graves = [c for c in candidatos if c["traste"] <= 7]
         if graves:
             return min(graves, key=lambda c: c["midi_base"])
@@ -147,48 +141,62 @@ async def generar_tablatura(archivo: UploadFile = File(...)):
         with open(ruta_wav, "wb") as f:
             shutil.copyfileobj(archivo.file, f)
 
-        y, sr = librosa.load(ruta_wav, mono=True)
-        # Detectar tempo
-        tempo, beats = librosa.beat.beat_track(y=y, sr=sr)
-        tempo = float(round(float(tempo.item()), 1))
-        segundos_por_compas = (4 * 60) / tempo  # compás de 4/4
-        pitches, magnitudes = librosa.piptrack(y=y, sr=sr, threshold=0.1)
+        # Basic Pitch — detección de notas con red neuronal
+        _, _, note_events = predict(ruta_wav)
 
+        # Ordenar por tiempo
+        note_events = sorted(note_events, key=lambda n: n[0])
+
+        # Detectar tempo con librosa
+        y, sr = librosa.load(ruta_wav, mono=True)
+        tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
+        tempo = float(round(float(tempo.item()), 1))
+        segundos_por_compas = round((4 * 60) / tempo, 3)
+
+        # Convertir notas a tablatura
         tablatura = []
         nota_anterior = None
 
-        for t in range(0, pitches.shape[1], 10):
-            index = magnitudes[:, t].argmax()
-            pitch = pitches[index, t]
-            if pitch > 30 and pitch < 400:
-                nota_midi = librosa.hz_to_midi(pitch)
-                nota_idx = int(round(nota_midi)) % 12
-                octava = int(round(nota_midi)) // 12 - 1
-                nombre = NOTAS_ES[nota_idx]
+        for note in note_events:
+            tiempo = round(float(note[0]), 2)
+            midi = int(note[2])
+            velocidad = float(note[3])
 
-                # Evitar repetir la misma nota consecutiva
-                clave = f"{nombre}{octava}"
-                if clave == nota_anterior:
-                    continue
-                nota_anterior = clave
+            # Filtrar notas muy débiles
+            if velocidad < 0.2:
+                continue
 
-                posicion = nota_a_tablatura(nombre, octava)
-                if posicion:
-                    tablatura.append({
-                        "tiempo": round(t * 512 / sr, 2),
-                        "nota": nombre,
-                        "octava": octava,
-                        "cuerda": posicion["cuerda"],
-                        "cuerda_num": posicion["cuerda_num"],
-                        "traste": posicion["traste"]
-                    })
+            # Filtrar fuera del rango del bajo (Mi1=28 a Sol3=55)
+            if midi < 28 or midi > 50:
+                continue
+
+            nota_idx = midi % 12
+            octava = midi // 12 - 1
+            nombre = NOTAS_ES[nota_idx]
+
+            # Evitar repetición consecutiva
+            clave = f"{nombre}{octava}"
+            if clave == nota_anterior:
+                continue
+            nota_anterior = clave
+
+            posicion = nota_a_tablatura(midi)
+            if posicion:
+                tablatura.append({
+                    "tiempo": tiempo,
+                    "nota": nombre,
+                    "octava": octava,
+                    "cuerda": posicion["cuerda"],
+                    "cuerda_num": posicion["cuerda_num"],
+                    "traste": posicion["traste"]
+                })
 
         return {
             "status": "ok",
             "total_notas": len(tablatura),
             "tempo": tempo,
-            "segundos_por_compas": round(segundos_por_compas, 3),
-            "tablatura": tablatura[:80]
+            "segundos_por_compas": segundos_por_compas,
+            "tablatura": tablatura
         }
     
 from fastapi.responses import FileResponse
