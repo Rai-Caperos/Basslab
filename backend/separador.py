@@ -35,6 +35,7 @@ def separar_bajo(ruta_mp3: str, directorio_destino: str) -> str:
             raise RuntimeError("demucs no generó el archivo de bajo")
 
         nombre_destino = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
             directorio_destino,
             f"bajo_{os.path.basename(ruta_mp3)}.wav"
         )

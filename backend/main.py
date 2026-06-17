@@ -30,7 +30,8 @@ async def analizar_bajo(archivo: UploadFile = File(...)):
         ruta_mp3 = os.path.join(tmpdir, archivo.filename)
         with open(ruta_mp3, "wb") as f:
             shutil.copyfileobj(archivo.file, f)
-        destino = separar_bajo(ruta_mp3, "projects")
+        projects_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "projects")
+        destino = separar_bajo(ruta_mp3, projects_dir)
         return {"status": "ok", "mensaje": "Bajo extraído", "archivo_bajo": destino}
 
 @app.post("/generar-tablatura")
