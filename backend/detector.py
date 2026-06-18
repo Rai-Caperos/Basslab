@@ -50,11 +50,19 @@ def detectar_notas(ruta_wav: str) -> list[dict]:
             continue
         nota_anterior = clave
 
+        # Corregir offset de un semitono — Basic Pitch detecta consistentemente un semitono alto
+        midi_corregido = midi - 1
+        if midi_corregido < MIDI_MIN:
+            continue
+        nota_idx_c = midi_corregido % 12
+        octava_c = midi_corregido // 12 - 1
+        nombre_c = NOTAS_ES[nota_idx_c]
+
         notas.append({
             "tiempo": tiempo,
-            "nota": nombre,
-            "octava": octava,
-            "midi": midi
+            "nota": nombre_c,
+            "octava": octava_c,
+            "midi": midi_corregido
         })
 
     return notas

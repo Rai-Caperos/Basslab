@@ -154,15 +154,18 @@ function mostrarTablatura(notas, tempo, segundosPorCompas) {
   }
 
   const cuerdas = ['G', 'D', 'A', 'E']
-  const COLS_POR_COMPAS = 8
+  const COLS_POR_COMPAS = 16
+  const COMPASES_POR_LINEA = 4
 
   const duracionTotal = notas[notas.length - 1].tiempo + segundosPorCompas
   const numCompases = Math.ceil(duracionTotal / segundosPorCompas)
   const COLS = numCompases * COLS_POR_COMPAS
 
+  // Grid vacío
   const grid = {}
   cuerdas.forEach(c => grid[c] = Array(COLS).fill('-'))
 
+  // Convertir tiempo a columna
   function tiempoACol(tiempo) {
     const compas = Math.floor(tiempo / segundosPorCompas)
     const posEnCompas = (tiempo % segundosPorCompas) / segundosPorCompas
@@ -172,6 +175,7 @@ function mostrarTablatura(notas, tempo, segundosPorCompas) {
     )
   }
 
+  // Rellenar notas sincronizando todas las cuerdas
   notas.forEach(n => {
     let col = tiempoACol(n.tiempo)
     while (col < COLS - 3 && cuerdas.some(c => grid[c][col] !== '-' || grid[c][col + 1] !== '-')) {
@@ -182,35 +186,57 @@ function mostrarTablatura(notas, tempo, segundosPorCompas) {
     if (str.length > 1) grid[n.cuerda][col + 1] = str[1]
   })
 
-  let html = `<div style="overflow-x:auto; padding:8px 4px;">`
-  html += `<div style="font-family:'Share Tech Mono',monospace; font-size:13px; line-height:2.2; white-space:nowrap; display:inline-block;">`
-  html += `<div style="font-size:9px; color:#005588; letter-spacing:2px; margin-bottom:10px;">♩= ${tempo} BPM &nbsp;·&nbsp; ${numCompases} compases &nbsp;·&nbsp; 4/4</div>`
+  // Construir HTML por bloques de COMPASES_POR_LINEA
+  let html = `<div style="padding: 8px 12px; font-family:'Share Tech Mono',monospace;">`
+  html += `<div style="font-size:9px; color:#005588; letter-spacing:2px; margin-bottom:12px;">♩= ${tempo} BPM &nbsp;·&nbsp; ${numCompases} compases &nbsp;·&nbsp; 4/4</div>`
 
-  cuerdas.forEach(cuerda => {
-    let linea = `<span style="color:#0099ff; margin-right:2px;">${cuerda}|</span>`
+  const numBloques = Math.ceil(numCompases / COMPASES_POR_LINEA)
 
-    for (let compas = 0; compas < numCompases; compas++) {
-      const inicio = compas * COLS_POR_COMPAS
-      const fin = inicio + COLS_POR_COMPAS
+  for (let bloque = 0; bloque < numBloques; bloque++) {
+    const compasInicio = bloque * COMPASES_POR_LINEA
+    const compasFinBloque = Math.min(compasInicio + COMPASES_POR_LINEA, numCompases)
+    const numCompasBloque = compasFinBloque - compasInicio
 
-      for (let col = inicio; col < fin; col++) {
-        const posEnCompas = col - inicio
-        if (posEnCompas > 0 && posEnCompas % 2 === 0) {
-          linea += `<span style="color:#0a2a4a;">·</span>`
-        }
-        const char = grid[cuerda][col]
-        if (char !== '-') {
-          linea += `<span style="color:#00aaff; font-weight:bold;">${char}</span>`
-        } else {
-          linea += `<span style="color:#0a3a6a;">-</span>`
-        }
-      }
-      linea += `<span style="color:#1a5a8a; margin:0 2px;">|</span>`
+    // Número de compás encima
+    let lineaNums = `<div style="font-size:8px; color:#003355; margin-left:28px; margin-bottom:2px; letter-spacing:0;">`
+    for (let c = compasInicio; c < compasFinBloque; c++) {
+      const anchoCompas = COLS_POR_COMPAS + 1 // +1 por la barra
+      lineaNums += `<span style="display:inline-block; width:${anchoCompas * 10}px;">${c + 1}</span>`
     }
+    lineaNums += '</div>'
+    html += lineaNums
 
-    html += `<div style="margin-bottom:2px;">${linea}</div>`
-  })
+    // Cuerdas
+    cuerdas.forEach(cuerda => {
+      let linea = `<div style="font-size:15px; line-height:2.2; white-space:nowrap; margin-bottom:3px;">`
+      linea += `<span style="color:#0099ff; display:inline-block; width:28px;">${cuerda}|</span>`
 
-  html += '</div></div>'
+      for (let c = compasInicio; c < compasFinBloque; c++) {
+        const inicio = c * COLS_POR_COMPAS
+        const fin = inicio + COLS_POR_COMPAS
+
+        for (let col = inicio; col < fin; col++) {
+          const posEnCompas = col - inicio
+          if (posEnCompas > 0 && posEnCompas % 4 === 0) {
+            linea += `<span style="color:#0a2a4a;">·</span>`
+          }
+          const char = grid[cuerda][col]
+          if (char !== '-') {
+            linea += `<span class="tab-nota-inline" data-tiempo="${notas.find(n => n.cuerda === cuerda && Math.abs(tiempoACol(n.tiempo) - col) <= 1)?.tiempo || 0}" style="color:#00aaff; font-weight:bold;">${char}</span>`
+          } else {
+            linea += `<span style="color:#0a3a6a;">-</span>`
+          }
+        }
+        linea += `<span style="color:#1a5a8a;">|</span>`
+      }
+
+      linea += '</div>'
+      html += linea
+    })
+
+    html += `<div style="height:16px;"></div>`
+  }
+
+  html += '</div>'
   content.innerHTML = html
 }
