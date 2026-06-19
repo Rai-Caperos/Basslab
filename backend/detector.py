@@ -13,7 +13,12 @@ def detectar_notas(ruta_wav: str) -> list[dict]:
     Usa Basic Pitch para detectar notas en un WAV.
     Filtra armónicos y devuelve lista ordenada por tiempo.
     """
-    _, _, note_events = predict(ruta_wav)
+    _, _, note_events = predict(
+        ruta_wav,
+        onset_threshold=0.3,
+        frame_threshold=0.2,
+        minimum_note_length=60
+    )
     note_events = sorted(note_events, key=lambda n: n[0])
 
     # Filtrar por rango y velocidad
@@ -38,6 +43,7 @@ def detectar_notas(ruta_wav: str) -> list[dict]:
     # Convertir a diccionarios
     notas = []
     nota_anterior = None
+    tiempo_anterior = 0
     for note in notas_filtradas:
         tiempo = round(float(note[0]), 2)
         midi = int(note[2])
@@ -46,9 +52,10 @@ def detectar_notas(ruta_wav: str) -> list[dict]:
         nombre = NOTAS_ES[nota_idx]
 
         clave = f"{nombre}{octava}"
-        if clave == nota_anterior:
+        if clave == nota_anterior and (tiempo - tiempo_anterior) < 0.25:
             continue
         nota_anterior = clave
+        tiempo_anterior = tiempo
 
         # Corregir offset de un semitono — Basic Pitch detecta consistentemente un semitono alto
         midi_corregido = midi - 1

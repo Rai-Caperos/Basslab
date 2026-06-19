@@ -13,6 +13,7 @@ def separar_bajo(ruta_mp3: str, directorio_destino: str) -> str:
         resultado = subprocess.run(
             [
                 sys.executable, "-m", "demucs",
+                "-n", "htdemucs_ft",
                 "--two-stems", "bass",
                 "-o", tmpdir,
                 ruta_mp3
