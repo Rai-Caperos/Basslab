@@ -5,7 +5,7 @@ NOTAS_ES = ["Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "L
 # Rango real del bajo: Mi1 (MIDI 28) a Re3 (MIDI 50)
 MIDI_MIN = 28
 MIDI_MAX = 50
-VELOCIDAD_MIN = 0.2
+VELOCIDAD_MIN = 0.25
 VENTANA_ARMONICO = 0.3
 
 def detectar_notas(ruta_wav: str) -> list[dict]:
